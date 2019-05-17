@@ -1,4 +1,4 @@
-
+require 'pry'
 
 class HTML_element
   attr_reader :tag
@@ -13,11 +13,46 @@ class HTML_element
   # create an HTML element with attributes from a string
   #  e.g. "<a href='someplace.htm' target='blank'>"
   def self.from_string(str)
-    # FIXME
-    self.new(
-      str.gsub("<","").gsub(">","").split(/\s/).first&.downcase
-    )
+    elem = self.new(self.tag_from_string(str))
+    elem_attributes = str.gsub("<","")
+      .gsub(">","")
+      .gsub("/","")
+      .strip
+      .gsub(/\s*=\s*/,"=") # " = " => "="
+      .split(/\s+/)
+      .slice(1,str.length)
+    elem_attributes.each do |attribute_str|
+      quote = attribute_str[attribute_str.length-1]
+      if !"'\"".include?(quote)
+        quote = ""
+      end
+      key = attribute_str.split("=").first&.downcase
+      value = attribute_str.split("=").last&.gsub(quote,"")
+      elem.attributes[key] = value
+    end
+    elem
   end
+
+  # copy with attributes but no contents
+  def self.from_html_element(old_elem)
+    elem = self.new(old_elem.tag)
+    old_elem.attributes.each do |key,value|
+      elem.attributes[key] = value
+    end
+    elem
+  end
+
+  def self.tag_from_string(str)
+    str.gsub("<","")
+      .gsub(">","")
+      .gsub("/","")
+      .split(/\s/)
+      .first&.downcase
+  end
+end
+
+def tag_in_stack(element_stack,tag)
+  !!element_stack.map { |e| e.tag }.include?(tag)
 end
 
 
@@ -29,6 +64,8 @@ def html_reducer(html_doc)
   html_doc_chars = html_doc.strip.split("")
 
   self_closing_tags = ["area","base","br","col","embed","hr","img","input","link","meta","param","source","track","wbr","command","keygen","menuitem"]
+  reopenable_tags = ["b","i","a","font","em","h1","h2","h3","h4","h5","h6","pre","strong","u"]
+  nestable_tags = ["div"]
 
   element_stack = [] # stack of open elements
   reduction = [] # results array
@@ -59,7 +96,7 @@ def html_reducer(html_doc)
     comment_match = buffer.match(comment_regex)
 
     # closing script tag
-    if in_script && closing_script_match
+    if closing_script_match
       text = buffer.split(closing_script_regex).first.to_s.strip
       if text != ""
         element_stack.last.contents << text
@@ -68,13 +105,34 @@ def html_reducer(html_doc)
       element_stack.pop
 
     # closing style tag
-    elsif in_css && closing_style_match
+    elsif closing_style_match
       text = buffer.split(closing_style_regex).first.to_s.strip
       if text != ""
         element_stack.last.contents << text
       end
       buffer = ""
       element_stack.pop
+
+    # comment
+    elsif comment_match
+      contents = (element_stack.last&.contents) || reduction
+      text = buffer.split(comment_regex).first.to_s.strip
+      if text != ""
+        contents << text
+      end
+      contents << comment_match.to_s
+
+      buffer = ""
+
+    # inside a script
+    elsif tag_in_stack(element_stack,"script")
+      # do nothing
+
+    elsif tag_in_stack(element_stack,"style")
+      # do nothing
+
+    elsif buffer.include?("<!--")
+      # do nothing
 
     # self closing tag containing /> (doesn't get pushed to the stack)
     elsif self_closing_tag_match
@@ -93,12 +151,33 @@ def html_reducer(html_doc)
       if text != ""
         contents << text
       end
-      tag = HTML_element.from_string(tag_match.to_s)
+      elem = HTML_element.from_string(tag_match.to_s)
 
-      contents << tag
-
-      if !self_closing_tags.include?(tag.tag) # push to the stack
-        element_stack.push(tag)
+      if !self_closing_tags.include?(elem.tag) # push to the stack
+        # check whether nesting is possible
+        if tag_in_stack(element_stack,elem.tag) && !nestable_tags.include?(elem.tag)
+          tmp_stack = []
+          while tag_in_stack(element_stack,elem.tag)
+            tmp = element_stack.pop
+            contents = (element_stack.last&.contents) || reduction
+            if reopenable_tags.include?(tmp.tag) && (tmp.tag != elem.tag)
+              tmp_stack << tmp
+            end
+          end
+          
+          contents << elem
+          element_stack.push(elem)
+          contents = (element_stack.last&.contents) || reduction
+          while tmp_stack.length > 0
+            new_elem = HTML_element.from_html_element(tmp_stack.pop)
+            contents << new_elem
+            element_stack.push(new_elem)
+            contents = (element_stack.last&.contents) || reduction
+          end
+        else
+          contents << elem
+          element_stack.push(elem)
+        end
       end
 
       buffer = ""
@@ -110,7 +189,25 @@ def html_reducer(html_doc)
       if text != ""
         contents << text
       end
-      element_stack.pop ### FIXME
+      tag = HTML_element.tag_from_string(closing_tag_match.to_s)
+      if tag_in_stack(element_stack, tag)
+        tmp_stack = []
+        until element_stack.last.tag == tag
+          tmp = element_stack.pop
+          if reopenable_tags.include?(tmp.tag) && (tmp.tag != tag)
+            tmp_stack << tmp
+          end
+        end
+        element_stack.pop
+        contents = (element_stack.last&.contents) || reduction
+        
+        while tmp_stack.length > 0
+          new_elem = HTML_element.from_html_element(tmp_stack.pop)
+          contents << new_elem
+          element_stack.push(new_elem)
+          contents = (element_stack.last&.contents) || reduction
+        end
+      end
       buffer = ""
 
     # doctype (stack must be empty)
@@ -120,17 +217,6 @@ def html_reducer(html_doc)
         reduction << text
       end
       reduction << doctype_match.to_s
-      buffer = ""
-
-    # comment
-    elsif comment_match
-      contents = (element_stack.last&.contents) || reduction
-      text = buffer.split(comment_regex).first.to_s.strip
-      if text != ""
-        contents << text
-      end
-      contents << comment_match.to_s
-
       buffer = ""
     end
   end
