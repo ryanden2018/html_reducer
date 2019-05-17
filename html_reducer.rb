@@ -157,7 +157,7 @@ def html_reducer(html_doc)
 
       if !self_closing_tags.include?(tag.tag) # push to the stack
         # check whether nesting is possible
-        if tag_in_stack(element_stack,tag.tag) && !nestable_tags.include(tag.tag)
+        if tag_in_stack(element_stack,tag.tag) && !nestable_tags.include?(tag.tag)
           tmp_stack = []
           while tag_in_stack(element_stack,tag.tag)
             tmp = element_stack.pop
