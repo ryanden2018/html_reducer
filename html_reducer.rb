@@ -1,4 +1,3 @@
-require 'pry'
 
 class HTML_element
   attr_reader :tag
@@ -48,6 +47,21 @@ class HTML_element
       .gsub("/","")
       .split(/\s/)
       .first&.downcase
+  end
+
+  def to_s
+    self_closing_tags = ["area","base","br","col","embed","hr","img","input","link","meta","param","source","track","wbr","command","keygen","menuitem"]
+    result = "<#{@tag}"
+    @attributes.each do |key,value|
+      result += " #{key}='#{value}'"
+    end
+    if (@tag == "script") && (@contents == [])
+      result += " /"
+    elsif self_closing_tags.include?(@tag)
+      result += " /"
+    end
+    result += ">"
+    result
   end
 end
 
@@ -178,6 +192,8 @@ def html_reducer(html_doc)
           contents << elem
           element_stack.push(elem)
         end
+      else
+        contents << elem
       end
 
       buffer = ""
