@@ -37,6 +37,10 @@ class HTML_element
     elem
   end
 
+  def self.from_html_element(html_element)
+    # TODO
+  end
+
   def self.tag_from_string(str)
     str.gsub("<","")
       .gsub(">","")
@@ -59,6 +63,10 @@ def html_reducer(html_doc)
   html_doc_chars = html_doc.strip.split("")
 
   self_closing_tags = ["area","base","br","col","embed","hr","img","input","link","meta","param","source","track","wbr","command","keygen","menuitem"]
+
+  reopenable_tags = ["b","i","a","font","em","h1","h2","h3","h4","h5","h6","pre","strong","u"]
+
+  nestable_tags = ["div"]
 
   element_stack = [] # stack of open elements
   reduction = [] # results array
