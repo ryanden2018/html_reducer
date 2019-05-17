@@ -1,6 +1,5 @@
 
 ## TODO
-## * collect attributes in HTML_element.from_string
 ## * HTML code inside HTML comments
 ## * HTML code inside JavaScript string literals
 ## * handle mismatched tags gracefully
@@ -20,10 +19,29 @@ class HTML_element
   # create an HTML element with attributes from a string
   #  e.g. "<a href='someplace.htm' target='blank'>"
   def self.from_string(str)
-    # FIXME
-    self.new(
-      str.gsub("<","").gsub(">","").split(/\s/).first&.downcase
-    )
+    elem = self.new(self.tag_from_string(str))
+    elem_attributes = str.gsub("<","")
+      .gsub(">","")
+      .gsub("/","")
+      .strip
+      .gsub(/\s*=\s*/,"=") # " = " => "="
+      .split(/\s+/)
+      .slice(1,str.length)
+    elem_attributes.each do |attribute_str|
+      quote = attribute_str[attribute_str.length-1]
+      key = attribute_str.split("=").first&.downcase
+      value = attribute_str.split("=").last&.gsub(quote,"")
+      elem.attributes[key] = value
+    end
+    elem
+  end
+
+  def self.tag_from_string(str)
+    str.gsub("<","")
+      .gsub(">","")
+      .gsub("/","")
+      .split(/\s/)
+      .first&.downcase
   end
 end
 
@@ -66,7 +84,7 @@ def html_reducer(html_doc)
     comment_match = buffer.match(comment_regex)
 
     # closing script tag
-    if in_script && closing_script_match
+    if closing_script_match
       text = buffer.split(closing_script_regex).first.to_s.strip
       if text != ""
         element_stack.last.contents << text
@@ -75,7 +93,7 @@ def html_reducer(html_doc)
       element_stack.pop
 
     # closing style tag
-    elsif in_css && closing_style_match
+    elsif closing_style_match
       text = buffer.split(closing_style_regex).first.to_s.strip
       if text != ""
         element_stack.last.contents << text
