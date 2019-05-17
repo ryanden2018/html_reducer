@@ -1,7 +1,5 @@
 
 ## TODO
-## * HTML code inside HTML comments
-## * HTML code inside JavaScript string literals
 ## * handle mismatched tags gracefully
 ## * tags such as li and p which need no closing tag but are not self-closing
 
@@ -43,6 +41,10 @@ class HTML_element
       .split(/\s/)
       .first&.downcase
   end
+end
+
+def tag_in_stack(element_stack,tag)
+  !!element_stack.map { |e| e.tag }.include?(tag)
 end
 
 
@@ -101,6 +103,27 @@ def html_reducer(html_doc)
       buffer = ""
       element_stack.pop
 
+    # comment
+    elsif comment_match
+      contents = (element_stack.last&.contents) || reduction
+      text = buffer.split(comment_regex).first.to_s.strip
+      if text != ""
+        contents << text
+      end
+      contents << comment_match.to_s
+
+      buffer = ""
+
+    # inside a script
+    elsif tag_in_stack(element_stack,"script")
+      # do nothing
+
+    elsif tag_in_stack(element_stack,"style")
+      # do nothing
+
+    elsif buffer.include?("<!--")
+      # do nothing
+
     # self closing tag containing /> (doesn't get pushed to the stack)
     elsif self_closing_tag_match
       text = buffer.split(self_closing_tag_regex).first.to_s.strip
@@ -145,17 +168,6 @@ def html_reducer(html_doc)
         reduction << text
       end
       reduction << doctype_match.to_s
-      buffer = ""
-
-    # comment
-    elsif comment_match
-      contents = (element_stack.last&.contents) || reduction
-      text = buffer.split(comment_regex).first.to_s.strip
-      if text != ""
-        contents << text
-      end
-      contents << comment_match.to_s
-
       buffer = ""
     end
   end
