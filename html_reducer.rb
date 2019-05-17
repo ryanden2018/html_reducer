@@ -6,7 +6,6 @@ class HTML_element
   
   def initialize(tag_name)
     @tag = tag_name
-    @apple = tag_name ##### 
     @attributes = {}
     @contents = []
   end
