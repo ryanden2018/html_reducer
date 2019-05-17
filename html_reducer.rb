@@ -1,8 +1,4 @@
 
-## TODO
-## * handle mismatched tags gracefully
-## * tags such as li and p which need no closing tag but are not self-closing
-
 
 class HTML_element
   attr_reader :tag
@@ -37,8 +33,12 @@ class HTML_element
     elem
   end
 
-  def self.from_html_element(html_element)
-    # TODO
+  # copy with attributes but no contents
+  def self.from_html_element(old_elem)
+    elem = self.new(old_elem.tag)
+    old_elem.attributes.each do |key,value|
+      elem[key] = value
+    end
   end
 
   def self.tag_from_string(str)
@@ -155,7 +155,22 @@ def html_reducer(html_doc)
       contents << tag
 
       if !self_closing_tags.include?(tag.tag) # push to the stack
-        element_stack.push(tag)
+        # check whether nesting is possible
+        if tag_in_stack(element_stack,tag.tag) && !nestable_tags.include(tag.tag)
+          tmp_stack = []
+          while tag_in_stack(element_stack,tag.tag)
+            tmp = element_stack.pop
+            if reopenable_tags.include?(tmp.tag)
+              tmp_stack << tmp
+            end
+          end
+          element_stack.push(tag)
+          while tmp_stack.length > 0
+            element_stack.push(HTML_element.from_html_element(tmp_stack.pop))
+          end
+        else
+          element_stack.push(tag)
+        end
       end
 
       buffer = ""
@@ -167,7 +182,19 @@ def html_reducer(html_doc)
       if text != ""
         contents << text
       end
-      element_stack.pop ### FIXME
+      tag = HTML_element.tag_from_string(closing_tag_match.to_s)
+      if tag_in_stack(element_stack, tag)
+        tmp_stack = []
+        while tag_in_stack(element_stack,tag)
+          tmp = element_stack.pop
+          if reopenable_tags.include?(tmp.tag)
+            tmp_stack << tmp
+          end
+        end
+        while tmp_stack.length > 0
+          element_stack.push(HTML_element.from_html_element(tmp_stack.pop))
+        end
+      end
       buffer = ""
 
     # doctype (stack must be empty)
