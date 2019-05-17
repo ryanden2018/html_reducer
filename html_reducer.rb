@@ -27,6 +27,9 @@ class HTML_element
       .slice(1,str.length)
     elem_attributes.each do |attribute_str|
       quote = attribute_str[attribute_str.length-1]
+      if !"'\"".include?(quote)
+        quote = ""
+      end
       key = attribute_str.split("=").first&.downcase
       value = attribute_str.split("=").last&.gsub(quote,"")
       elem.attributes[key] = value
