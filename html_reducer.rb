@@ -1,4 +1,4 @@
-
+require 'pry'
 
 class HTML_element
   attr_reader :tag
@@ -151,26 +151,32 @@ def html_reducer(html_doc)
       if text != ""
         contents << text
       end
-      tag = HTML_element.from_string(tag_match.to_s)
+      elem = HTML_element.from_string(tag_match.to_s)
 
-      contents << tag
-
-      if !self_closing_tags.include?(tag.tag) # push to the stack
+      if !self_closing_tags.include?(elem.tag) # push to the stack
         # check whether nesting is possible
-        if tag_in_stack(element_stack,tag.tag) && !nestable_tags.include?(tag.tag)
+        if tag_in_stack(element_stack,elem.tag) && !nestable_tags.include?(elem.tag)
           tmp_stack = []
-          while tag_in_stack(element_stack,tag.tag)
+          while tag_in_stack(element_stack,elem.tag)
             tmp = element_stack.pop
-            if reopenable_tags.include?(tmp.tag)
+            contents = (element_stack.last&.contents) || reduction
+            if reopenable_tags.include?(tmp.tag) && (tmp.tag != elem.tag)
               tmp_stack << tmp
             end
           end
-          element_stack.push(tag)
+          
+          contents << elem
+          element_stack.push(elem)
+          contents = (element_stack.last&.contents) || reduction
           while tmp_stack.length > 0
-            element_stack.push(HTML_element.from_html_element(tmp_stack.pop))
+            new_elem = HTML_element.from_html_element(tmp_stack.pop)
+            contents << new_elem
+            element_stack.push(new_elem)
+            contents = (element_stack.last&.contents) || reduction
           end
         else
-          element_stack.push(tag)
+          contents << elem
+          element_stack.push(elem)
         end
       end
 
@@ -186,14 +192,20 @@ def html_reducer(html_doc)
       tag = HTML_element.tag_from_string(closing_tag_match.to_s)
       if tag_in_stack(element_stack, tag)
         tmp_stack = []
-        while tag_in_stack(element_stack,tag)
+        until element_stack.last.tag == tag
           tmp = element_stack.pop
-          if reopenable_tags.include?(tmp.tag)
+          if reopenable_tags.include?(tmp.tag) && (tmp.tag != tag)
             tmp_stack << tmp
           end
         end
+        element_stack.pop
+        contents = (element_stack.last&.contents) || reduction
+        
         while tmp_stack.length > 0
-          element_stack.push(HTML_element.from_html_element(tmp_stack.pop))
+          new_elem = HTML_element.from_html_element(tmp_stack.pop)
+          contents << new_elem
+          element_stack.push(new_elem)
+          contents = (element_stack.last&.contents) || reduction
         end
       end
       buffer = ""
