@@ -37,8 +37,9 @@ class HTML_element
   def self.from_html_element(old_elem)
     elem = self.new(old_elem.tag)
     old_elem.attributes.each do |key,value|
-      elem[key] = value
+      elem.attributes[key] = value
     end
+    elem
   end
 
   def self.tag_from_string(str)
