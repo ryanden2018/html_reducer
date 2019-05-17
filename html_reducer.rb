@@ -1,4 +1,11 @@
 
+## TODO
+## * collect attributes in HTML_element.from_string
+## * HTML code inside HTML comments
+## * HTML code inside JavaScript string literals
+## * handle mismatched tags gracefully
+## * tags such as li and p which need no closing tag but are not self-closing
+
 
 class HTML_element
   attr_reader :tag
