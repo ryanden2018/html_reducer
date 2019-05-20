@@ -94,7 +94,7 @@ def html_reducer(html_doc)
     closing_style_regex = /<\/style\s*>\z/i
     closing_style_match = buffer.match(closing_style_regex)
 
-    self_closing_tag_regex = /<[a-z][^>]*\/\s*>\z/
+    self_closing_tag_regex = /<[a-z][^>]*\/\s*>\z/i
     self_closing_tag_match = buffer.match(self_closing_tag_regex)
 
     tag_regex = /<[a-z][^>]*>\z/i
@@ -236,6 +236,9 @@ def html_reducer(html_doc)
       buffer = ""
     end
   end
+
+  contents = (element_stack.last&.contents) || reduction
+  contents << buffer
 
   reduction
 end
